@@ -1,42 +1,38 @@
-// server.js
-
 const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
+const cors = require('cors');
 
 const app = express();
-const server = http.createServer(app);
 
-const io = new Server(server, {
+app.use(cors());
+
+const io = require('socket.io')(7000, {
     cors: {
-        origin: "*", // Allow all origins (update this in production)
+        origin: "*", // Allow all origins (use specific origin in production)
         methods: ["GET", "POST"],
     }
 });
 
-const users = {};
+const users ={};
 
-io.on('connection', (socket) => {
+io.on('connection', socket => {
     console.log('A user connected');
 
-    socket.on('new-user-joined', ({ user, userimg }) => {
-        console.log("New User:", user);
+    socket.on('new-user-joined', ({ user, userimg }) =>{
+        console.log("New User:", user, userimg);
         users[socket.id] = { user, userimg };
         socket.broadcast.emit('user-joined', { user, userimg });
+    })
+
+    // Handle 'send' event from a client
+    socket.on('send', ({user, message, userimg }) => {
+        console.log(`Message received: ${message}`);
+        
+        // Broadcast the message to all other clients
+        socket.broadcast.emit('receive', {user, message, userimg });
     });
 
-    socket.on('send', (message) => {
-        const userDetails = users[socket.id];
-        socket.broadcast.emit('receive', { message, ...userDetails });
-    });
-
+    // Handle client disconnect
     socket.on('disconnect', () => {
         console.log('A user disconnected');
-        delete users[socket.id];
     });
-});
-
-const PORT = process.env.PORT || 10000;
-server.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
 });
